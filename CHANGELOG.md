@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-10-06
+
+### Added
+- Codex provider support with automatic input detection and transcript normalization
+- Shared configuration resolver that supports both Claude and Codex install directories and `CCLINE_CONFIG_HOME`
+- Documentation for Codex installation, configuration, and new environment variables in English and Chinese
+
+### Changed
+- Refactored status segments to use provider-aware model metadata and shared usage parsing
+- Updated test fixtures and examples to include provider context alongside model identifiers
+
+### Fixed
+- Ensured block overrides, update state, and cost/burn-rate calculations read from both Claude and Codex transcript archives without manual tweaks
+
 ## [0.1.1] - 2025-08-12
 
 ### Added
@@ -50,4 +64,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Startup time: < 50ms
 - Memory usage: < 10MB
 - Binary size: ~2MB optimized release build
-
