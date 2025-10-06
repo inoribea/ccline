@@ -83,7 +83,7 @@ fn render_claude_instructions<W: Write>(stdout: &mut W) -> io::Result<()> {
     writeln!(stdout, "2. Add to Claude Code settings.json:")?;
     writeln!(
         stdout,
-        "   {\n     \"statusLine\": {\n       \"type\": \"command\",\n       \"command\": \"~/.claude/ccline/ccline\",\n       \"padding\": 0\n     }\n   }\n"
+        "   {{\n     \"statusLine\": {{\n       \"type\": \"command\",\n       \"command\": \"~/.claude/ccline/ccline\",\n       \"padding\": 0\n     }}\n   }}\n"
     )?;
 
     writeln!(
