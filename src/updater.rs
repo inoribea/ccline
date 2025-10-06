@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::utils::resolve_config_dir;
+
 #[cfg(feature = "self-update")]
 use chrono::{DateTime, Utc};
 
@@ -77,10 +79,7 @@ impl UpdateState {
     pub fn load() -> Self {
         #[cfg(feature = "self-update")]
         {
-            let config_dir = dirs::home_dir()
-                .unwrap_or_default()
-                .join(".claude")
-                .join("ccline");
+            let config_dir = resolve_config_dir();
 
             let state_file = config_dir.join(".update_state.json");
 
@@ -192,10 +191,7 @@ impl UpdateState {
     pub fn save(&self) -> Result<(), std::io::Error> {
         #[cfg(feature = "self-update")]
         {
-            let config_dir = dirs::home_dir()
-                .unwrap_or_default()
-                .join(".claude")
-                .join("ccline");
+            let config_dir = resolve_config_dir();
 
             std::fs::create_dir_all(&config_dir)?;
             let state_file = config_dir.join(".update_state.json");

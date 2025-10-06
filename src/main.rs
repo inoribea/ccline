@@ -132,7 +132,7 @@ fn main() -> io::Result<()> {
 
     // Read Claude Code data from stdin
     let stdin = io::stdin();
-    let input: InputData = serde_json::from_reader(stdin.lock())?;
+    let input = InputData::from_reader(stdin.lock())?;
 
     // Generate statusline
     let generator = StatusLineGenerator::new(config);

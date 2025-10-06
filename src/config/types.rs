@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
+use std::io;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -23,22 +25,232 @@ fn default_true() -> bool {
     true
 }
 
-// Data structures compatible with existing main.rs
-#[derive(Deserialize)]
-pub struct Model {
-    pub display_name: String,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderKind {
+    Claude,
+    Codex,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone)]
+pub struct Model {
+    pub display_name: String,
+    pub identifier: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Workspace {
     pub current_dir: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone)]
 pub struct InputData {
+    pub provider: ProviderKind,
     pub model: Model,
     pub workspace: Workspace,
     pub transcript_path: String,
+}
+
+impl InputData {
+    pub fn from_reader<R: io::Read>(reader: R) -> io::Result<Self> {
+        let value: Value = serde_json::from_reader(reader)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+        Self::from_value(value).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+    }
+
+    pub fn from_value(value: Value) -> Result<Self, String> {
+        let obj = value
+            .as_object()
+            .ok_or_else(|| "Input must be a JSON object".to_string())?;
+
+        let transcript_path = find_string(
+            obj,
+            &[
+                "transcript_path",
+                "transcriptPath",
+                "transcript_file",
+                "transcriptFile",
+            ],
+        )
+        .ok_or_else(|| "Missing transcript_path in input".to_string())?;
+
+        let workspace_dir = extract_workspace_dir(obj)
+            .ok_or_else(|| "Missing workspace.current_dir or workingDirectory".to_string())?;
+
+        let (model_display, model_identifier) = extract_model_info(obj)
+            .ok_or_else(|| "Missing model information in input".to_string())?;
+
+        let provider = detect_provider(&transcript_path, model_identifier.as_deref(), obj);
+
+        Ok(Self {
+            provider,
+            model: Model {
+                display_name: model_display,
+                identifier: model_identifier,
+            },
+            workspace: Workspace {
+                current_dir: workspace_dir,
+            },
+            transcript_path,
+        })
+    }
+}
+
+fn find_string(map: &serde_json::Map<String, Value>, keys: &[&str]) -> Option<String> {
+    for key in keys {
+        if let Some(Value::String(value)) = map.get(*key) {
+            if !value.is_empty() {
+                return Some(value.clone());
+            }
+        }
+    }
+    None
+}
+
+fn extract_workspace_dir(map: &serde_json::Map<String, Value>) -> Option<String> {
+    if let Some(workspace) = map.get("workspace").and_then(|v| v.as_object()) {
+        if let Some(dir) = find_string(workspace, &["current_dir", "currentDir", "cwd"]) {
+            return Some(dir);
+        }
+        if let Some(dir) = find_string(workspace, &["path", "directory", "root"]) {
+            return Some(dir);
+        }
+        if let Some(dir) = find_string(workspace, &["working_directory", "workingDirectory"]) {
+            return Some(dir);
+        }
+    }
+
+    find_string(
+        map,
+        &[
+            "working_directory",
+            "workingDirectory",
+            "cwd",
+            "current_dir",
+            "currentDir",
+        ],
+    )
+}
+
+fn extract_model_info(map: &serde_json::Map<String, Value>) -> Option<(String, Option<String>)> {
+    if let Some(model_value) = map.get("model") {
+        match model_value {
+            Value::String(name) => {
+                let display = prettify_model_name(name);
+                return Some((display, Some(name.clone())));
+            }
+            Value::Object(model_obj) => {
+                let display =
+                    find_string(model_obj, &["display_name", "displayName", "name", "id"])?;
+                let identifier =
+                    find_string(model_obj, &["identifier", "id", "name", "model", "slug"])
+                        .or_else(|| Some(display.clone()));
+                return Some((display, identifier));
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(display) = find_string(
+        map,
+        &[
+            "model_display_name",
+            "modelDisplayName",
+            "modelName",
+            "model",
+        ],
+    ) {
+        let identifier = find_string(map, &["model_id", "modelId", "model", "modelName"])
+            .or_else(|| Some(display.clone()));
+        return Some((display, identifier));
+    }
+
+    None
+}
+
+fn detect_provider(
+    transcript_path: &str,
+    model_identifier: Option<&str>,
+    map: &serde_json::Map<String, Value>,
+) -> ProviderKind {
+    let lowered_path = transcript_path.to_lowercase();
+    if lowered_path.contains("/.codex/") || lowered_path.contains("\\.codex\\") {
+        return ProviderKind::Codex;
+    }
+    if lowered_path.contains("/.claude/") || lowered_path.contains("\\.claude\\") {
+        return ProviderKind::Claude;
+    }
+
+    if let Some(identifier) = model_identifier {
+        let lowered = identifier.to_lowercase();
+        if lowered.contains("codex") || lowered.contains("gpt-") {
+            return ProviderKind::Codex;
+        }
+        if lowered.contains("claude") {
+            return ProviderKind::Claude;
+        }
+    }
+
+    if let Some(model_value) = map.get("model") {
+        if let Some(model_str) = model_value.as_str() {
+            let lowered = model_str.to_lowercase();
+            if lowered.contains("codex") || lowered.contains("gpt-") {
+                return ProviderKind::Codex;
+            }
+            if lowered.contains("claude") {
+                return ProviderKind::Claude;
+            }
+        }
+    }
+
+    ProviderKind::Claude
+}
+
+fn prettify_model_name(raw: &str) -> String {
+    if raw.is_empty() {
+        return raw.to_string();
+    }
+
+    if raw.contains("gpt-5") && raw.contains("codex") {
+        return "GPT-5 Codex".to_string();
+    }
+
+    raw.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_input_data_claude_format() {
+        let value = json!({
+            "model": {"display_name": "claude-3-5-sonnet"},
+            "workspace": {"current_dir": "/home/user/project"},
+            "transcript_path": "/home/user/.claude/projects/demo/session.jsonl"
+        });
+
+        let input = InputData::from_value(value).expect("should parse claude format");
+        assert_eq!(input.provider, ProviderKind::Claude);
+        assert_eq!(input.model.display_name, "claude-3-5-sonnet");
+        assert_eq!(input.model.identifier.as_deref(), Some("claude-3-5-sonnet"));
+        assert_eq!(input.workspace.current_dir, "/home/user/project");
+    }
+
+    #[test]
+    fn test_input_data_codex_format() {
+        let value = json!({
+            "model": "gpt-5-codex",
+            "workspace": {"cwd": "/home/inoribea/code/demo"},
+            "transcriptPath": "/home/inoribea/.codex/sessions/2025/10/demo.jsonl"
+        });
+
+        let input = InputData::from_value(value).expect("should parse codex format");
+        assert_eq!(input.provider, ProviderKind::Codex);
+        assert_eq!(input.model.display_name, "GPT-5 Codex");
+        assert_eq!(input.model.identifier.as_deref(), Some("gpt-5-codex"));
+        assert_eq!(input.workspace.current_dir, "/home/inoribea/code/demo");
+    }
 }
 
 // OpenAI-style nested token details
@@ -213,7 +425,7 @@ impl RawUsage {
 // Legacy alias for backward compatibility
 pub type Usage = RawUsage;
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Message {
     #[serde(default)]
     pub id: Option<String>,
@@ -221,7 +433,7 @@ pub struct Message {
     pub model: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TranscriptEntry {
     pub r#type: Option<String>,
     pub message: Option<Message>,
@@ -229,4 +441,38 @@ pub struct TranscriptEntry {
     pub request_id: Option<String>,
     #[serde(default)]
     pub timestamp: Option<String>,
+    #[serde(default)]
+    pub payload: Option<TranscriptPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TranscriptPayload {
+    #[serde(default)]
+    pub r#type: Option<String>,
+    #[serde(default)]
+    pub info: Option<TokenCountInfo>,
+    #[serde(default)]
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TokenCountInfo {
+    #[serde(default)]
+    pub total_token_usage: Option<TokenUsageBreakdown>,
+    #[serde(default)]
+    pub last_token_usage: Option<TokenUsageBreakdown>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TokenUsageBreakdown {
+    #[serde(default)]
+    pub input_tokens: Option<u32>,
+    #[serde(default)]
+    pub cached_input_tokens: Option<u32>,
+    #[serde(default)]
+    pub output_tokens: Option<u32>,
+    #[serde(default)]
+    pub reasoning_output_tokens: Option<u32>,
+    #[serde(default)]
+    pub total_tokens: Option<u32>,
 }

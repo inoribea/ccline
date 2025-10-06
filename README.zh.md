@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-基于 Rust 的高性能 Claude Code 状态栏工具，集成 Git 信息和实时使用量跟踪。
+面向 Claude Code 与 Codex 的高性能状态栏工具，基于 Rust，集成 Git 信息和实时使用量跟踪。
 
 ![Language:Rust](https://img.shields.io/static/v1?label=Language&message=Rust&color=orange&style=flat-square)
 ![License:MIT](https://img.shields.io/static/v1?label=License&message=MIT&color=blue&style=flat-square)
@@ -17,7 +17,7 @@
 
 - **高性能** Rust 原生速度
 - **Git 集成** 显示分支、状态和跟踪信息
-- **模型显示** 简化的 Claude 模型名称
+- **模型显示** 简化的 Claude/Codex 模型名称
 - **使用量跟踪** 基于转录文件分析
 - **成本追踪** 显示会话、日常和计费块统计信息
 - **燃烧率监控** 实时消耗模式监控
@@ -34,20 +34,20 @@
 
 #### 选项 1: 动态链接版本（推荐）
 ```bash
-mkdir -p ~/.claude/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64.tar.gz
 tar -xzf ccline-linux-x64.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 *系统要求: Ubuntu 22.04+, CentOS 9+, Debian 11+, RHEL 9+ (glibc 2.35+)*
 
 #### 选项 2: 静态链接版本（通用兼容）
 ```bash
-mkdir -p ~/.claude/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64-static.tar.gz
 tar -xzf ccline-linux-x64-static.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 *适用于任何 Linux 发行版（静态链接，无依赖）*
@@ -55,20 +55,20 @@ chmod +x ~/.claude/ccline/ccline
 ### macOS (Intel)
 
 ```bash  
-mkdir -p ~/.claude/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-x64.tar.gz
 tar -xzf ccline-macos-x64.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 
 ### macOS (Apple Silicon)
 
 ```bash
-mkdir -p ~/.claude/ccline  
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline  
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-arm64.tar.gz
 tar -xzf ccline-macos-arm64.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 
@@ -76,10 +76,10 @@ chmod +x ~/.claude/ccline/ccline
 
 ```powershell
 # 创建目录并下载
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"  # Codex CLI: $env:USERPROFILE\.codex\ccline
 Invoke-WebRequest -Uri "https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-windows-x64.zip" -OutFile "ccline-windows-x64.zip"
 Expand-Archive -Path "ccline-windows-x64.zip" -DestinationPath "."
-Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"
+Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"  # Codex CLI: $env:USERPROFILE\.codex\ccline\
 ```
 
 ### 从源码构建
@@ -88,7 +88,9 @@ Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"
 git clone https://github.com/Haleclipse/CCometixLine.git
 cd CCometixLine
 cargo build --release
-cp target/release/ccometixline ~/.claude/ccline/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
+cp target/release/ccometixline ~/.claude/ccline/ccline   # Codex CLI: ~/.codex/ccline/ccline
+chmod +x ~/.claude/ccline/ccline
 ```
 
 ### Claude Code 配置
@@ -116,6 +118,25 @@ cp target/release/ccometixline ~/.claude/ccline/ccline
   }
 }
 ```
+
+### Codex CLI 配置
+
+在 Codex 的 `~/.codex/config.toml` 中添加：
+
+```toml
+[status_line]
+type = "command"
+command = "~/.codex/ccline/ccline"
+padding = 0
+```
+
+在 Windows 上将 `command` 改为 `"%USERPROFILE%\\.codex\\ccline\\ccline.exe"`。
+
+### 提供方目录与环境变量
+
+- `CLAUDE_CONFIG_DIR`: 指定 Claude 转录文件根目录，兼容旧版行为。
+- `CODEX_SESSIONS_DIR`: 指定 Codex 转录根目录，默认为 `~/.codex/sessions`，可用逗号分隔多个路径。
+- `CCLINE_CONFIG_HOME`: 覆盖 ccline 的配置目录，用于块设置和自更新状态。
 
 ## 使用
 
@@ -167,6 +188,7 @@ ccline --clear-block-start
 显示简化的 Claude 模型名称：
 - `claude-3-5-sonnet` → `Sonnet 3.5`
 - `claude-4-sonnet` → `Sonnet 4`
+- `gpt-5-codex` → `GPT-5 Codex`
 
 ### 目录显示
 

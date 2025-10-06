@@ -7,7 +7,7 @@ authors = ["Haleclipse"]
 license = "MIT"
 repository = "https://github.com/username/CCometixLine"
 readme = "README.md"
-keywords = ["claude", "statusline", "powerline", "rust", "claude-code"]
+keywords = ["claude", "codex", "statusline", "powerline", "rust"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]

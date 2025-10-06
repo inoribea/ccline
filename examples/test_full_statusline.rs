@@ -1,4 +1,4 @@
-use ccometixline::config::{Config, InputData, Model, Workspace};
+use ccometixline::config::{Config, InputData, Model, ProviderKind, Workspace};
 use ccometixline::core::StatusLineGenerator;
 
 fn main() {
@@ -20,8 +20,10 @@ fn main() {
 
     // Create test input data
     let input = InputData {
+        provider: ProviderKind::Claude,
         model: Model {
             display_name: "claude-3-5-sonnet-20241022".to_string(),
+            identifier: Some("claude-3-5-sonnet-20241022".to_string()),
         },
         workspace: Workspace {
             current_dir: "/home/user/projects/test-project".to_string(),

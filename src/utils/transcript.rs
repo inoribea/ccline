@@ -1,5 +1,7 @@
 use crate::billing::UsageEntry;
-use crate::config::{NormalizedUsage, TranscriptEntry};
+use crate::config::{
+    NormalizedUsage, ProviderKind, TokenCountInfo, TokenUsageBreakdown, TranscriptEntry,
+};
 use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
@@ -11,16 +13,82 @@ pub fn extract_session_id(path: &std::path::Path) -> String {
         .to_string()
 }
 
+#[derive(Debug, Default)]
+pub struct TranscriptState {
+    provider: Option<ProviderKind>,
+    current_model: Option<String>,
+    pub last_normalized: Option<NormalizedUsage>,
+}
+
+impl TranscriptState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_provider(provider: Option<ProviderKind>) -> Self {
+        Self {
+            provider,
+            ..Default::default()
+        }
+    }
+
+    pub fn provider(&self) -> Option<ProviderKind> {
+        self.provider
+    }
+
+    fn update_provider(&mut self, entry: &TranscriptEntry) {
+        if self.provider.is_some() {
+            return;
+        }
+
+        self.provider = detect_provider_from_entry(entry);
+    }
+
+    fn update_model_from_entry(&mut self, entry: &TranscriptEntry) {
+        if let Some(message) = entry.message.as_ref() {
+            if let Some(model) = message.model.as_ref() {
+                if !model.is_empty() {
+                    self.current_model = Some(model.clone());
+                }
+            }
+        }
+
+        if let Some(payload) = entry.payload.as_ref() {
+            if let Some(model) = payload.model.as_ref() {
+                if !model.is_empty() {
+                    self.current_model = Some(model.clone());
+                }
+            }
+        }
+    }
+}
+
 /// Parse a JSONL line and extract usage entry if valid
 pub fn parse_line_to_usage(
     line: &str,
     session_id: &str,
     seen: &mut HashSet<String>,
+    state: &mut TranscriptState,
 ) -> Option<UsageEntry> {
     // Parse the JSON line
     let entry: TranscriptEntry = serde_json::from_str(line).ok()?;
 
-    // Only process assistant messages with usage data
+    state.update_provider(&entry);
+    state.update_model_from_entry(&entry);
+
+    match state.provider() {
+        Some(ProviderKind::Claude) => parse_claude_entry(&entry, session_id, seen, state),
+        Some(ProviderKind::Codex) => parse_codex_entry(&entry, session_id, seen, state),
+        None => None,
+    }
+}
+
+fn parse_claude_entry(
+    entry: &TranscriptEntry,
+    session_id: &str,
+    seen: &mut HashSet<String>,
+    state: &mut TranscriptState,
+) -> Option<UsageEntry> {
     if entry.r#type.as_deref() != Some("assistant") {
         return None;
     }
@@ -28,25 +96,62 @@ pub fn parse_line_to_usage(
     let message = entry.message.as_ref()?;
     let raw_usage = message.usage.as_ref()?;
 
-    // Deduplication check - match ccusage behavior exactly
     if let (Some(msg_id), Some(req_id)) = (message.id.as_ref(), entry.request_id.as_ref()) {
-        // Use message_id:request_id when both are available
-        let hash = format!("{}:{}", msg_id, req_id);
+        let hash = format!("claude:{}:{}", session_id, format!("{}:{}", msg_id, req_id));
         if seen.contains(&hash) {
-            return None; // Skip duplicate
+            return None;
         }
         seen.insert(hash);
     }
-    // For null ID entries: don't deduplicate (matching ccusage behavior)
 
-    // Normalize the usage data
     let normalized = raw_usage.clone().normalize();
+    state.last_normalized = Some(normalized.clone());
 
-    // Get model name from message
-    let model = message.model.as_deref();
+    let model_ref = message.model.as_deref().or(state.current_model.as_deref());
 
-    // Convert to UsageEntry
-    extract_usage_entry(&normalized, session_id, entry.timestamp.as_deref(), model)
+    extract_usage_entry(
+        &normalized,
+        session_id,
+        entry.timestamp.as_deref(),
+        model_ref,
+    )
+}
+
+fn parse_codex_entry(
+    entry: &TranscriptEntry,
+    session_id: &str,
+    seen: &mut HashSet<String>,
+    state: &mut TranscriptState,
+) -> Option<UsageEntry> {
+    let payload = entry.payload.as_ref()?;
+    let payload_type = payload.r#type.as_deref()?;
+
+    if payload_type != "token_count" {
+        return None;
+    }
+
+    let info = payload.info.as_ref()?;
+    if info.last_token_usage.is_none() {
+        return None;
+    }
+
+    let hash = codex_hash(session_id, info, entry.timestamp.as_deref());
+    if seen.contains(&hash) {
+        return None;
+    }
+    seen.insert(hash);
+
+    let normalized = normalize_codex_usage(info);
+    state.last_normalized = Some(normalized.clone());
+
+    let model = state.current_model.clone().unwrap_or_default();
+
+    extract_usage_entry(
+        &normalized,
+        session_id,
+        entry.timestamp.as_deref(),
+        Some(model.as_str()),
+    )
 }
 
 /// Convert NormalizedUsage to UsageEntry
@@ -76,6 +181,123 @@ pub fn extract_usage_entry(
         cost: None, // Will be calculated later with pricing data
         session_id: session_id.to_string(),
     })
+}
+
+fn detect_provider_from_entry(entry: &TranscriptEntry) -> Option<ProviderKind> {
+    match entry.r#type.as_deref() {
+        Some("assistant") if entry.message.is_some() => Some(ProviderKind::Claude),
+        Some("event_msg") => entry
+            .payload
+            .as_ref()
+            .and_then(|payload| payload.r#type.as_deref())
+            .and_then(|payload_type| {
+                if payload_type == "token_count" {
+                    Some(ProviderKind::Codex)
+                } else {
+                    None
+                }
+            }),
+        Some("turn_context") => entry
+            .payload
+            .as_ref()
+            .and_then(|payload| payload.model.as_ref())
+            .map(|_| ProviderKind::Codex),
+        _ => None,
+    }
+}
+
+fn codex_hash(session_id: &str, info: &TokenCountInfo, timestamp: Option<&str>) -> String {
+    let totals = info
+        .total_token_usage
+        .as_ref()
+        .and_then(|usage| usage.total_tokens)
+        .unwrap_or(0);
+
+    let last = info.last_token_usage.as_ref();
+    let input = last.and_then(|u| u.input_tokens).unwrap_or(0);
+    let cached = last.and_then(|u| u.cached_input_tokens).unwrap_or(0);
+    let output = last.and_then(|u| u.output_tokens).unwrap_or(0);
+    let reasoning = last.and_then(|u| u.reasoning_output_tokens).unwrap_or(0);
+
+    let ts = timestamp.unwrap_or("");
+
+    format!(
+        "codex:{}:{}:{}:{}:{}:{}:{}",
+        session_id, ts, totals, input, cached, output, reasoning
+    )
+}
+
+fn normalize_codex_usage(info: &TokenCountInfo) -> NormalizedUsage {
+    let last = info.last_token_usage.as_ref().cloned().unwrap_or_default();
+
+    let mut raw_fields = Vec::new();
+
+    if last.input_tokens.is_some() {
+        raw_fields.push("input_tokens".to_string());
+    }
+    if last.cached_input_tokens.is_some() {
+        raw_fields.push("cached_input_tokens".to_string());
+    }
+    if last.output_tokens.is_some() {
+        raw_fields.push("output_tokens".to_string());
+    }
+    if last.reasoning_output_tokens.is_some() {
+        raw_fields.push("reasoning_output_tokens".to_string());
+    }
+    if last.total_tokens.is_some() {
+        raw_fields.push("total_tokens".to_string());
+    }
+
+    let input_tokens = last.input_tokens.unwrap_or(0);
+    let cache_read = last.cached_input_tokens.unwrap_or(0);
+    let reasoning_tokens = last.reasoning_output_tokens.unwrap_or(0);
+    let output_tokens = last.output_tokens.unwrap_or(0) + reasoning_tokens;
+
+    let total_tokens = last
+        .total_tokens
+        .unwrap_or_else(|| input_tokens + cache_read + output_tokens);
+
+    NormalizedUsage {
+        input_tokens,
+        output_tokens,
+        total_tokens,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: cache_read,
+        calculation_source: "codex_last_token_usage".to_string(),
+        raw_data_available: raw_fields,
+    }
+}
+
+impl Default for TokenUsageBreakdown {
+    fn default() -> Self {
+        Self {
+            input_tokens: None,
+            cached_input_tokens: None,
+            output_tokens: None,
+            reasoning_output_tokens: None,
+            total_tokens: None,
+        }
+    }
+}
+
+/// Parse entire transcript and return the latest normalized usage snapshot
+pub fn parse_latest_usage<P: AsRef<std::path::Path>>(
+    transcript_path: P,
+    provider_hint: Option<ProviderKind>,
+) -> Option<NormalizedUsage> {
+    use std::io::{BufRead, BufReader};
+
+    let file = std::fs::File::open(&transcript_path).ok()?;
+    let reader = BufReader::new(file);
+    let session_id = extract_session_id(transcript_path.as_ref());
+    let mut state = TranscriptState::with_provider(provider_hint);
+    let mut seen = HashSet::new();
+
+    for line in reader.lines().flatten() {
+        let _ = parse_line_to_usage(&line, &session_id, &mut seen, &mut state);
+    }
+
+    state.last_normalized
 }
 
 #[cfg(test)]
@@ -115,5 +337,32 @@ mod tests {
         assert_eq!(entry.session_id, "test-session");
         assert_eq!(entry.model, "claude-3-5-sonnet");
         assert!(entry.cost.is_none());
+    }
+
+    #[test]
+    fn test_codex_normalization() {
+        let info = TokenCountInfo {
+            total_token_usage: Some(TokenUsageBreakdown {
+                input_tokens: Some(1000),
+                cached_input_tokens: Some(800),
+                output_tokens: Some(50),
+                reasoning_output_tokens: Some(20),
+                total_tokens: Some(1870),
+            }),
+            last_token_usage: Some(TokenUsageBreakdown {
+                input_tokens: Some(200),
+                cached_input_tokens: Some(150),
+                output_tokens: Some(12),
+                reasoning_output_tokens: Some(8),
+                total_tokens: Some(370),
+            }),
+        };
+
+        let normalized = normalize_codex_usage(&info);
+        assert_eq!(normalized.input_tokens, 200);
+        assert_eq!(normalized.cache_read_input_tokens, 150);
+        assert_eq!(normalized.output_tokens, 20);
+        assert_eq!(normalized.total_tokens, 370);
+        assert_eq!(normalized.calculation_source, "codex_last_token_usage");
     }
 }

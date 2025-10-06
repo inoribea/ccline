@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-A high-performance Claude Code statusline tool written in Rust with Git integration and real-time usage tracking.
+A high-performance statusline tool for Claude Code and Codex, written in Rust with Git integration and real-time usage tracking.
 
 ![Language:Rust](https://img.shields.io/static/v1?label=Language&message=Rust&color=orange&style=flat-square)
 ![License:MIT](https://img.shields.io/static/v1?label=License&message=MIT&color=blue&style=flat-square)
@@ -17,7 +17,7 @@ The statusline shows: Model | Directory | Git Branch Status | Usage | Cost Stati
 
 - **High performance** with Rust native speed
 - **Git integration** with branch, status, and tracking info  
-- **Model display** with simplified Claude model names
+- **Model display** with simplified Claude and Codex model names
 - **Usage tracking** based on transcript analysis
 - **Cost tracking** with session, daily, and billing block statistics
 - **Burn rate monitoring** for real-time consumption patterns
@@ -34,20 +34,20 @@ Download from [Releases](https://github.com/Haleclipse/CCometixLine/releases):
 
 #### Option 1: Dynamic Binary (Recommended)
 ```bash
-mkdir -p ~/.claude/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64.tar.gz
 tar -xzf ccline-linux-x64.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 *Requires: Ubuntu 22.04+, CentOS 9+, Debian 11+, RHEL 9+ (glibc 2.35+)*
 
 #### Option 2: Static Binary (Universal Compatibility)
 ```bash
-mkdir -p ~/.claude/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64-static.tar.gz
 tar -xzf ccline-linux-x64-static.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 *Works on any Linux distribution (static, no dependencies)*
@@ -55,20 +55,20 @@ chmod +x ~/.claude/ccline/ccline
 ### macOS (Intel)
 
 ```bash  
-mkdir -p ~/.claude/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-x64.tar.gz
 tar -xzf ccline-macos-x64.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 
 ### macOS (Apple Silicon)
 
 ```bash
-mkdir -p ~/.claude/ccline  
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline  
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-arm64.tar.gz
 tar -xzf ccline-macos-arm64.tar.gz
-cp ccline ~/.claude/ccline/
+cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
 chmod +x ~/.claude/ccline/ccline
 ```
 
@@ -76,10 +76,10 @@ chmod +x ~/.claude/ccline/ccline
 
 ```powershell
 # Create directory and download
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"  # Codex CLI: $env:USERPROFILE\.codex\ccline
 Invoke-WebRequest -Uri "https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-windows-x64.zip" -OutFile "ccline-windows-x64.zip"
 Expand-Archive -Path "ccline-windows-x64.zip" -DestinationPath "."
-Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"
+Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"  # Codex CLI: $env:USERPROFILE\.codex\ccline\
 ```
 
 ### Claude Code Configuration
@@ -108,6 +108,20 @@ Add to your Claude Code `settings.json`:
 }
 ```
 
+
+### Codex CLI Configuration
+
+Add to your Codex `~/.codex/config.toml`:
+
+```toml
+[status_line]
+type = "command"
+command = "~/.codex/ccline/ccline"
+padding = 0
+```
+
+On Windows, set `command = "%USERPROFILE%\\.codex\\ccline\\ccline.exe"`.
+
 ### Build from Source
 
 ```bash
@@ -116,14 +130,20 @@ cd CCometixLine
 cargo build --release
 
 # Linux/macOS
-mkdir -p ~/.claude/ccline
-cp target/release/ccometixline ~/.claude/ccline/ccline
+mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
+cp target/release/ccometixline ~/.claude/ccline/ccline   # Codex CLI: ~/.codex/ccline/ccline
 chmod +x ~/.claude/ccline/ccline
 
 # Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"
-copy target\release\ccometixline.exe "$env:USERPROFILE\.claude\ccline\ccline.exe"
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"  # Codex CLI: $env:USERPROFILE\.codex\ccline
+copy target\release\ccometixline.exe "$env:USERPROFILE\.claude\ccline\ccline.exe"  # Codex CLI: $env:USERPROFILE\.codex\ccline\ccline.exe
 ```
+
+### Provider Paths & Environment
+
+- `CLAUDE_CONFIG_DIR`: Override the base directory for Claude transcript archives (same as before).
+- `CODEX_SESSIONS_DIR`: Comma-separated list of Codex transcript roots (defaults to `~/.codex/sessions`).
+- `CCLINE_CONFIG_HOME`: Override the configuration directory used for block overrides and update state.
 
 ## Usage
 
@@ -175,6 +195,7 @@ Displays: `Model | Directory | Git Branch Status | Usage | Cost Statistics | Bur
 Shows simplified Claude model names:
 - `claude-3-5-sonnet` → `Sonnet 3.5`
 - `claude-4-sonnet` → `Sonnet 4`
+- `gpt-5-codex` → `GPT-5 Codex`
 
 ### Directory Display
 

@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::utils::resolve_config_dir;
+
 /// Block override configuration for a specific date
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockOverride {
@@ -84,15 +86,7 @@ pub struct BlockOverrideManager {
 impl BlockOverrideManager {
     /// Create a new BlockOverrideManager with default config path
     pub fn new() -> Result<Self, BlockOverrideError> {
-        let config_dir = dirs::home_dir()
-            .ok_or_else(|| {
-                BlockOverrideError::FileAccess(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Could not find home directory",
-                ))
-            })?
-            .join(".claude")
-            .join("ccline");
+        let config_dir = resolve_config_dir();
 
         let config_path = config_dir.join("block_overrides.json");
 

@@ -121,14 +121,16 @@ impl Segment for CostSegment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Model, Workspace};
+    use crate::config::{Model, ProviderKind, Workspace};
 
     #[test]
     fn test_cost_segment_disabled() {
         let segment = CostSegment::new(false);
         let input = InputData {
+            provider: ProviderKind::Claude,
             model: Model {
                 display_name: "test-model".to_string(),
+                identifier: Some("test-model".to_string()),
             },
             workspace: Workspace {
                 current_dir: "/test".to_string(),

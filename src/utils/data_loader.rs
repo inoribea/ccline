@@ -1,4 +1,6 @@
 use crate::billing::UsageEntry;
+use crate::config::ProviderKind;
+use crate::utils::transcript::{parse_line_to_usage, TranscriptState};
 use glob::glob;
 use std::collections::HashSet;
 use std::fs;
@@ -6,42 +8,62 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 pub struct DataLoader {
-    project_dirs: Vec<PathBuf>,
+    transcript_dirs: Vec<PathBuf>,
 }
 
 impl DataLoader {
     pub fn new() -> Self {
         Self {
-            project_dirs: Self::find_claude_dirs(),
+            transcript_dirs: Self::find_transcript_dirs(),
         }
     }
 
-    /// Find all Claude data directories
-    fn find_claude_dirs() -> Vec<PathBuf> {
-        let mut dirs = Vec::new();
+    /// Find all transcript directories for supported providers
+    fn find_transcript_dirs() -> Vec<PathBuf> {
+        let mut dirs: Vec<PathBuf> = Vec::new();
 
         // Get home directory
         if let Ok(home) = std::env::var("HOME") {
-            // New version path (~/.config/claude/projects)
-            let new_path = PathBuf::from(&home).join(".config/claude/projects");
-            if new_path.exists() {
-                dirs.push(new_path);
-            }
+            let home_path = PathBuf::from(&home);
 
-            // Legacy path (~/.claude/projects)
-            let old_path = PathBuf::from(&home).join(".claude/projects");
-            if old_path.exists() {
-                dirs.push(old_path);
-            }
+            // Claude (new) path (~/.config/claude/projects)
+            let claude_new = home_path.join(".config/claude/projects");
+            push_unique(&mut dirs, claude_new);
+
+            // Claude (legacy) path (~/.claude/projects)
+            let claude_old = home_path.join(".claude/projects");
+            push_unique(&mut dirs, claude_old);
+
+            // Codex transcripts (~/.codex/sessions)
+            let codex_sessions = home_path.join(".codex/sessions");
+            push_unique(&mut dirs, codex_sessions);
         }
 
         // Support custom directories via environment variable
         if let Ok(custom_dirs) = std::env::var("CLAUDE_CONFIG_DIR") {
             for dir in custom_dirs.split(',') {
-                let path = PathBuf::from(dir.trim()).join("projects");
-                if path.exists() {
-                    dirs.push(path);
+                let trimmed = dir.trim();
+                if trimmed.is_empty() {
+                    continue;
                 }
+                let base = PathBuf::from(trimmed);
+                let path = if base.ends_with("projects") {
+                    base
+                } else {
+                    base.join("projects")
+                };
+                push_unique(&mut dirs, path);
+            }
+        }
+
+        if let Ok(custom_dirs) = std::env::var("CODEX_SESSIONS_DIR") {
+            for dir in custom_dirs.split(',') {
+                let trimmed = dir.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                let path = PathBuf::from(trimmed);
+                push_unique(&mut dirs, path);
             }
         }
 
@@ -54,7 +76,7 @@ impl DataLoader {
         let mut seen_hashes = HashSet::new();
 
         // Scan all project directories
-        for dir in &self.project_dirs {
+        for dir in &self.transcript_dirs {
             let pattern = format!("{}/**/*.jsonl", dir.display());
             if let Ok(paths) = glob(&pattern) {
                 for path in paths.flatten() {
@@ -91,6 +113,9 @@ impl DataLoader {
             _ => fs::read_to_string(path).unwrap_or_default(),
         };
 
+        let provider_hint = detect_provider_from_path(path);
+        let mut state = TranscriptState::with_provider(provider_hint);
+
         // Parse each line
         for line in content.lines() {
             if line.trim().is_empty() {
@@ -98,9 +123,7 @@ impl DataLoader {
             }
 
             // Parse transcript entry and extract usage
-            if let Some(usage_entry) =
-                crate::utils::transcript::parse_line_to_usage(line, &session_id, seen)
-            {
+            if let Some(usage_entry) = parse_line_to_usage(line, &session_id, seen, &mut state) {
                 entries.push(usage_entry);
             }
         }
@@ -142,5 +165,22 @@ impl DataLoader {
 impl Default for DataLoader {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn push_unique(list: &mut Vec<PathBuf>, path: PathBuf) {
+    if path.exists() && !list.contains(&path) {
+        list.push(path);
+    }
+}
+
+fn detect_provider_from_path(path: &Path) -> Option<ProviderKind> {
+    let lowered = path.display().to_string().to_lowercase();
+    if lowered.contains("/.codex/") || lowered.contains("\\.codex\\") {
+        Some(ProviderKind::Codex)
+    } else if lowered.contains("/.claude/") || lowered.contains("\\.claude\\") {
+        Some(ProviderKind::Claude)
+    } else {
+        None
     }
 }
