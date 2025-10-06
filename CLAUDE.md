@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CCometixLine is a high-performance Claude Code statusline tool written in Rust that provides real-time usage tracking, Git integration, cost monitoring, and burn rate analysis. The tool integrates with Claude Code's statusline system to display comprehensive development information.
+CCometixLine is a high-performance statusline tool for both Claude Code and Codex, written in Rust. It provides real-time usage tracking, Git integration, cost monitoring, and burn-rate analysis, integrating with the respective statusline systems to display comprehensive development information.
 
 ## Development Commands
 
@@ -137,8 +137,8 @@ Tests should focus on:
 
 ## Integration Notes
 
-This tool is designed specifically for Claude Code statusline integration. It expects:
+This tool targets both Claude Code and Codex statusline integrations. It expects:
 - JSON input via stdin containing model, directory, and git information
 - Nerd Font support in the terminal for proper icon display
-- Access to Claude Code transcript files for usage/cost analysis
+- Access to Claude Code or Codex transcript files for usage/cost analysis
 - Git repository context for git-related segments
