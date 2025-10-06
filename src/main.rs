@@ -25,7 +25,9 @@ fn main() -> io::Result<()> {
     }
 
     if cli.configure {
-        println!("TUI configuration mode not implemented yet");
+        if let Err(err) = ccometixline::config::run_configuration_wizard() {
+            eprintln!("Error while running configuration wizard: {}", err);
+        }
         return Ok(());
     }
 
