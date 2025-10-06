@@ -2,127 +2,94 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-面向 Claude Code 与 Codex 的高性能状态栏工具，基于 Rust，集成 Git 信息和实时使用量跟踪。
+CCometixLine 是一个为 Claude Code 与 Codex 提供支持的高性能状态栏工具。它实时读取会话 JSON 数据、Git 信息以及转录用量，生成紧凑的命令行状态条，展示模型、目录、Git 状态、令牌使用量、成本与燃烧率。
 
 ![Language:Rust](https://img.shields.io/static/v1?label=Language&message=Rust&color=orange&style=flat-square)
 ![License:MIT](https://img.shields.io/static/v1?label=License&message=MIT&color=blue&style=flat-square)
 
-## 截图
+## 亮点
 
-![CCometixLine](assets/img1.png)
+- **双提供方支持**：自动识别 Claude 与 Codex 转录文件，无需额外配置。
+- **即时状态栏**：模型、目录、Git、用量、成本、燃烧率集成在一行输出中。
+- **智能模型名称**：将 Claude 与 Codex 模型 ID 规范化为易读标签。
+- **精准用量分析**：解析 Claude `assistant` 消息与 Codex `token_count` 事件。
+- **成本 & 燃烧率**：复刻 ccusage 的计费块算法，支持手动覆盖。
+- **极速轻量**：Rust 原生实现，启动耗时仅毫秒级，内存占用 <10 MB。
 
-状态栏显示：模型 | 目录 | Git 分支状态 | 使用量 | 成本统计 | 燃烧率
+## 安装步骤
 
-## 特性
+### 1. 选择安装目录
 
-- **高性能** Rust 原生速度
-- **Git 集成** 显示分支、状态和跟踪信息
-- **模型显示** 简化的 Claude/Codex 模型名称
-- **使用量跟踪** 基于转录文件分析
-- **成本追踪** 显示会话、日常和计费块统计信息
-- **燃烧率监控** 实时消耗模式监控
-- **目录显示** 显示当前工作空间
-- **简洁设计** 使用 Nerd Font 图标
-- **简单配置** 通过命令行选项配置
-- **环境变量控制** 功能自定义选项
+| 提供方      | 默认安装路径              |
+|-------------|---------------------------|
+| Claude Code | `~/.claude/ccline`        |
+| Codex CLI   | `~/.codex/ccline`         |
 
-## 安装
+建议先导出 `CCLINE_HOME` 变量，方便后续命令：
 
-从 [Releases](https://github.com/Haleclipse/CCometixLine/releases) 下载：
-
-### Linux
-
-#### 选项 1: 动态链接版本（推荐）
 ```bash
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
+# Claude Code
+export CCLINE_HOME="$HOME/.claude/ccline"
+# Codex CLI
+# export CCLINE_HOME="$HOME/.codex/ccline"
+mkdir -p "$CCLINE_HOME"
+```
+
+### 2. 下载发行版二进制
+
+#### Linux (glibc, x86_64)
+```bash
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64.tar.gz
-tar -xzf ccline-linux-x64.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-linux-x64.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
-*系统要求: Ubuntu 22.04+, CentOS 9+, Debian 11+, RHEL 9+ (glibc 2.35+)*
 
-#### 选项 2: 静态链接版本（通用兼容）
+#### Linux (musl 静态, x86_64)
 ```bash
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64-static.tar.gz
-tar -xzf ccline-linux-x64-static.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-linux-x64-static.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
-*适用于任何 Linux 发行版（静态链接，无依赖）*
 
-### macOS (Intel)
-
-```bash  
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
+#### macOS (Intel)
+```bash
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-x64.tar.gz
-tar -xzf ccline-macos-x64.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-macos-x64.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
 
-### macOS (Apple Silicon)
-
+#### macOS (Apple Silicon)
 ```bash
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline  
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-arm64.tar.gz
-tar -xzf ccline-macos-arm64.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-macos-arm64.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
 
-### Windows
-
+#### Windows (PowerShell)
 ```powershell
-# 创建目录并下载
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"  # Codex CLI: $env:USERPROFILE\.codex\ccline
+# Claude Code:  $env:USERPROFILE\.claude\ccline
+# Codex CLI:    $env:USERPROFILE\.codex\ccline
+$env:CCLINE_HOME = "$env:USERPROFILE\.claude\ccline"
+New-Item -ItemType Directory -Force -Path $env:CCLINE_HOME | Out-Null
 Invoke-WebRequest -Uri "https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-windows-x64.zip" -OutFile "ccline-windows-x64.zip"
-Expand-Archive -Path "ccline-windows-x64.zip" -DestinationPath "."
-Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"  # Codex CLI: $env:USERPROFILE\.codex\ccline\
+Expand-Archive -Path "ccline-windows-x64.zip" -DestinationPath "." -Force
+Move-Item "ccline.exe" "$env:CCLINE_HOME\ccline.exe" -Force
 ```
 
-### 从源码构建
+### 3. 配置编辑器 / CLI
 
-```bash
-git clone https://github.com/Haleclipse/CCometixLine.git
-cd CCometixLine
-cargo build --release
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
-cp target/release/ccometixline ~/.claude/ccline/ccline   # Codex CLI: ~/.codex/ccline/ccline
-chmod +x ~/.claude/ccline/ccline
-```
-
-### Claude Code 配置
-
-添加到 Claude Code `settings.json`：
-
-**Linux/macOS:**
+#### Claude Code (`settings.json`)
 ```json
 {
   "statusLine": {
-    "type": "command", 
+    "type": "command",
     "command": "~/.claude/ccline/ccline",
     "padding": 0
   }
 }
 ```
 
-**Windows:**
-```json
-{
-  "statusLine": {
-    "type": "command", 
-    "command": "%USERPROFILE%\\.claude\\ccline\\ccline.exe",
-    "padding": 0
-  }
-}
-```
-
-### Codex CLI 配置
-
-在 Codex 的 `~/.codex/config.toml` 中添加：
-
+#### Codex CLI (`~/.codex/config.toml`)
 ```toml
 [status_line]
 type = "command"
@@ -130,168 +97,92 @@ command = "~/.codex/ccline/ccline"
 padding = 0
 ```
 
-在 Windows 上将 `command` 改为 `"%USERPROFILE%\\.codex\\ccline\\ccline.exe"`。
+Windows 请将命令路径替换为 `%USERPROFILE%\.claude\ccline\ccline.exe` 或 `%USERPROFILE%\.codex\ccline\ccline.exe`。
 
-### 提供方目录与环境变量
-
-- `CLAUDE_CONFIG_DIR`: 指定 Claude 转录文件根目录，兼容旧版行为。
-- `CODEX_SESSIONS_DIR`: 指定 Codex 转录根目录，默认为 `~/.codex/sessions`，可用逗号分隔多个路径。
-- `CCLINE_CONFIG_HOME`: 覆盖 ccline 的配置目录，用于块设置和自更新状态。
-
-## 使用
+### 从源码构建
 
 ```bash
-# 基础使用 (显示所有启用的段落)
-ccline
-
-# 显示帮助
-ccline --help
-
-# 打印默认配置
-ccline --print-config
-
-# TUI 配置模式 (计划中)
-ccline --configure
-
-# 计费块管理
-ccline --set-block-start <时间>    # 设置当天计费块开始时间
-ccline --clear-block-start          # 清除计费块开始时间设置
-ccline --show-block-status          # 显示当前计费块状态
+git clone https://github.com/Haleclipse/CCometixLine.git
+cd CCometixLine
+cargo build --release
+install -Dm755 target/release/ccometixline "$CCLINE_HOME/ccline"
 ```
 
-### 计费块同步功能
+## 使用方式
 
-解决同一账号在多设备间切换时计费块不同步的问题：
+CCometixLine 从标准输入读取一次 JSON 负载，输出带颜色的状态栏字符串。
 
 ```bash
-# 在设备A上设置块开始时间为上午10点
+# Claude / Codex 会自动注入 JSON
+data | ccline
+
+# 查看默认配置
+echo '{}' | ccline --print-config
+
+# 管理 5 小时计费块
 ccline --set-block-start 10
-
-# 支持的时间格式：
-ccline --set-block-start 10        # 10:00 (24小时制)
-ccline --set-block-start 10:30     # 10:30
-ccline --set-block-start "10:30"   # 带引号也可以
-
-# 查看当前设置
 ccline --show-block-status
-
-# 清除设置，恢复自动计算
 ccline --clear-block-start
 ```
 
-## 默认段落
+## 数据来源与环境变量
 
-显示：`模型 | 目录 | Git 分支状态 | 使用量 | 成本统计 | 燃烧率`
+- 转录目录：
+  - Claude：`~/.config/claude/projects`、`~/.claude/projects`
+  - Codex：`~/.codex/sessions`
+- `CLAUDE_CONFIG_DIR`：额外的 Claude 项目根目录（自动追加 `/projects`）。
+- `CODEX_SESSIONS_DIR`：额外的 Codex 会话根目录（逗号分隔）。
+- `CCLINE_CONFIG_HOME`：覆盖块设置与更新状态的存储目录。
+- `CCLINE_DISABLE_COST=1`：隐藏成本与燃烧率段。
+- `CCLINE_SHOW_TIMING=1`：附加性能 profiling 信息，便于调试。
 
-### 模型显示
+## 状态栏段落
 
-显示简化的 Claude 模型名称：
-- `claude-3-5-sonnet` → `Sonnet 3.5`
-- `claude-4-sonnet` → `Sonnet 4`
-- `gpt-5-codex` → `GPT-5 Codex`
-
-### 目录显示
-
-显示当前工作空间目录和文件夹图标。
-
-### Git 状态指示器
-
-- 带 Nerd Font 图标的分支名
-- 状态：`✓` 清洁，`●` 有更改，`⚠` 冲突
-- 远程跟踪：`↑n` 领先，`↓n` 落后
-
-### 使用量显示
-
-基于转录文件分析的令牌使用百分比，包含上下文限制跟踪。
-
-### 成本统计
-
-实时成本追踪，显示会话、日常和计费块信息：
-- **会话成本**：当前 Claude Code 会话的成本
-- **日常总计**：今日所有会话的总成本
-- **计费块**：5小时计费周期及剩余时间（支持手动同步）
-
-#### 动态计费块算法
-
-采用与 ccusage 相同的双条件触发算法：
-- 自动检测活动开始时间，创建5小时计费块
-- 当活动间隔超过5小时时自动开始新块
-- 支持手动设置开始时间以在多设备间同步
-
-### 燃烧率监控
-
-实时令牌消耗率监控和视觉指示器：
-- 🔥 高燃烧率 (>5000 tokens/分钟)
-- ⚡ 中等燃烧率 (2000-5000 tokens/分钟)
-- 📊 正常燃烧率 (<2000 tokens/分钟)
-- 显示每小时成本预测
-
-## 环境变量
-
-### 成本功能控制
-
-- `CCLINE_DISABLE_COST=1` - 同时禁用成本统计和燃烧率监控
-  - 设置时：仅显示核心段落（模型 | 目录 | Git | 使用量）
-  - 未设置时：显示所有段落包括成本追踪
-
-### 性能调优
-
-- `CCLINE_SHOW_TIMING=1` - 显示性能计时信息用于调试
-
-## 配置
-
-计划在未来版本中支持配置。当前为所有段落使用合理的默认值。
+| 段落     | 描述 |
+|----------|------|
+| Model    | 根据提供方显示可读模型名称，如 `Sonnet 3.5`、`GPT-5 Codex` |
+| Directory| 当前工作目录 |
+| Git      | 分支、整洁度 (✓ / ● / ⚠) 与领先/落后计数 |
+| Usage    | 基于 200 k 上下文限制的占用百分比 |
+| Cost     | 会话成本、当日总额、当前计费块摘要 |
+| Burn rate| 令牌/分钟趋势，结合 🔥 / ⚡ 指示 |
+| Update   | 检测到新版本时的提醒 |
 
 ## 性能
 
-- **启动时间**：< 50ms（TypeScript 版本约 200ms）
-- **内存使用**：< 10MB（Node.js 工具约 25MB）
-- **二进制大小**：约 2MB 优化版本
+- 启动时间 < 50 ms
+- 内存占用 < 10 MB
+- 发布版二进制 ≈ 2 MB
 
-## 系统要求
+## 依赖要求
 
-- **Git**: 版本 1.5+ (推荐 Git 2.22+ 以获得更好的分支检测)
-- **终端**: 必须支持 Nerd Font 图标正常显示
-  - 安装 [Nerd Font](https://www.nerdfonts.com/) 字体
-  - 中文用户推荐: [Maple Font](https://github.com/subframe7536/maple-font) (支持中文的 Nerd Font)
-  - 在终端中配置使用该字体
-- **Claude Code**: 用于状态栏集成
+- Git 1.5+（推荐 2.22+ 以获得更佳分支检测）
+- 支持 Nerd Font 的终端字体（如 FiraCode NF、JetBrains Mono NF）
+- Claude Code 桌面端 **或** Codex CLI（用于状态栏集成）
 
-## 开发
+## 开发脚本
 
 ```bash
-# 构建开发版本
-cargo build
-
-# 运行测试
+cargo fmt
+cargo clippy --all-targets
 cargo test
-
-# 构建优化版本
-cargo build --release
 ```
 
-## 路线图
+## 规划
 
-- [ ] TOML 配置文件支持
-- [ ] TUI 配置界面
-- [ ] 自定义主题
-- [ ] 插件系统
-- [ ] 跨平台二进制文件
+- TOML 配置文件
+- 内置 TUI 配置器
+- 主题自定义
+- 插件扩展点
 
-## 致谢
+## 鸣谢
 
-### ccusage 集成
-
-成本追踪功能基于 [ccusage](https://github.com/ryoppippi/ccusage) 项目的统计方法和定价数据实现。
-
-## 贡献
-
-欢迎贡献！请随时提交 issue 或 pull request。
+成本与计费逻辑参考自 [ccusage](https://github.com/ryoppippi/ccusage)。
 
 ## 许可证
 
-本项目采用 [MIT 许可证](LICENSE)。
+遵循 [MIT License](LICENSE)。
 
-## Star History
+## Star 历史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Haleclipse/CCometixLine&type=Date)](https://star-history.com/#Haleclipse/CCometixLine&Date)

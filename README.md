@@ -2,117 +2,99 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-A high-performance statusline tool for Claude Code and Codex, written in Rust with Git integration and real-time usage tracking.
+CCometixLine is a high-performance statusline generator for both Claude Code and Codex. It reads live session data, Git metadata, and transcript usage to show a compact command-line status bar that tracks your model, workspace, token usage, cost, and burn rate in real time.
 
 ![Language:Rust](https://img.shields.io/static/v1?label=Language&message=Rust&color=orange&style=flat-square)
 ![License:MIT](https://img.shields.io/static/v1?label=License&message=MIT&color=blue&style=flat-square)
 
-## Screenshots
+## Highlights
 
-![CCometixLine](assets/img1.png)
-
-The statusline shows: Model | Directory | Git Branch Status | Usage | Cost Statistics | Burn Rate
-
-## Features
-
-- **High performance** with Rust native speed
-- **Git integration** with branch, status, and tracking info  
-- **Model display** with simplified Claude and Codex model names
-- **Usage tracking** based on transcript analysis
-- **Cost tracking** with session, daily, and billing block statistics
-- **Burn rate monitoring** for real-time consumption patterns
-- **Directory display** showing current workspace
-- **Minimal design** using Nerd Font icons
-- **Simple configuration** via command line options
-- **Environment variable control** for feature customization
+- **Dual provider support** – Auto-detects Claude Code and Codex transcripts with zero configuration.
+- **Live statusline** – Displays model, directory, Git status, usage, cost, and burn rate in a single line.
+- **Provider-aware model names** – Normalises Claude and Codex identifiers into readable labels.
+- **Accurate usage analytics** – Replays JSONL transcripts (Claude `assistant` messages and Codex `token_count` events).
+- **Cost + burn rate** – Mirrors ccusage billing heuristics with manual override support.
+- **Fast and lightweight** – Rust binary starts in milliseconds and uses <10 MB RSS.
 
 ## Installation
 
-Download from [Releases](https://github.com/Haleclipse/CCometixLine/releases):
+### 1. Choose an install directory
 
-### Linux
+| Provider   | Default install path        |
+|------------|-----------------------------|
+| Claude Code | `~/.claude/ccline`          |
+| Codex CLI  | `~/.codex/ccline`           |
 
-#### Option 1: Dynamic Binary (Recommended)
+Export `CCLINE_HOME` to simplify the commands below:
+
 ```bash
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
+# Claude Code
+export CCLINE_HOME="$HOME/.claude/ccline"
+# Codex CLI
+# export CCLINE_HOME="$HOME/.codex/ccline"
+```
+
+Create the directory before copying the binary:
+
+```bash
+mkdir -p "$CCLINE_HOME"
+```
+
+### 2. Download a release binary
+
+#### Linux (glibc, x86_64)
+```bash
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64.tar.gz
-tar -xzf ccline-linux-x64.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-linux-x64.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
-*Requires: Ubuntu 22.04+, CentOS 9+, Debian 11+, RHEL 9+ (glibc 2.35+)*
 
-#### Option 2: Static Binary (Universal Compatibility)
+#### Linux (static musl, x86_64)
 ```bash
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-linux-x64-static.tar.gz
-tar -xzf ccline-linux-x64-static.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
-```
-*Works on any Linux distribution (static, no dependencies)*
-
-### macOS (Intel)
-
-```bash  
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
-wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-x64.tar.gz
-tar -xzf ccline-macos-x64.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-linux-x64-static.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
 
-### macOS (Apple Silicon)
-
+#### macOS (Intel)
 ```bash
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline  
+wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-x64.tar.gz
+ tar -xzf ccline-macos-x64.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
+```
+
+#### macOS (Apple Silicon)
+```bash
 wget https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-macos-arm64.tar.gz
-tar -xzf ccline-macos-arm64.tar.gz
-cp ccline ~/.claude/ccline/   # Codex CLI: ~/.codex/ccline/
-chmod +x ~/.claude/ccline/ccline
+ tar -xzf ccline-macos-arm64.tar.gz
+ install -Dm755 ccline "$CCLINE_HOME/ccline"
 ```
 
-### Windows
-
+#### Windows (PowerShell)
 ```powershell
-# Create directory and download
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"  # Codex CLI: $env:USERPROFILE\.codex\ccline
+# Claude Code:  $env:USERPROFILE\.claude\ccline
+# Codex CLI:    $env:USERPROFILE\.codex\ccline
+$env:CCLINE_HOME = "$env:USERPROFILE\.claude\ccline"
+New-Item -ItemType Directory -Force -Path $env:CCLINE_HOME | Out-Null
 Invoke-WebRequest -Uri "https://github.com/Haleclipse/CCometixLine/releases/latest/download/ccline-windows-x64.zip" -OutFile "ccline-windows-x64.zip"
-Expand-Archive -Path "ccline-windows-x64.zip" -DestinationPath "."
-Move-Item "ccline.exe" "$env:USERPROFILE\.claude\ccline\"  # Codex CLI: $env:USERPROFILE\.codex\ccline\
+Expand-Archive -Path "ccline-windows-x64.zip" -DestinationPath "." -Force
+Move-Item "ccline.exe" "$env:CCLINE_HOME\ccline.exe" -Force
 ```
 
-### Claude Code Configuration
+### 3. Wire up your editor/CLI
 
-Add to your Claude Code `settings.json`:
-
-**Linux/macOS:**
+#### Claude Code (`settings.json`)
 ```json
 {
   "statusLine": {
-    "type": "command", 
+    "type": "command",
     "command": "~/.claude/ccline/ccline",
     "padding": 0
   }
 }
 ```
 
-**Windows:**
-```json
-{
-  "statusLine": {
-    "type": "command", 
-    "command": "%USERPROFILE%\\.claude\\ccline\\ccline.exe",
-    "padding": 0
-  }
-}
-```
-
-
-### Codex CLI Configuration
-
-Add to your Codex `~/.codex/config.toml`:
-
+#### Codex CLI (`~/.codex/config.toml`)
 ```toml
 [status_line]
 type = "command"
@@ -120,183 +102,91 @@ command = "~/.codex/ccline/ccline"
 padding = 0
 ```
 
-On Windows, set `command = "%USERPROFILE%\\.codex\\ccline\\ccline.exe"`.
+On Windows replace the command path with `%USERPROFILE%\.claude\ccline\ccline.exe` or `%USERPROFILE%\.codex\ccline\ccline.exe`.
 
-### Build from Source
+### Build from source
 
 ```bash
 git clone https://github.com/Haleclipse/CCometixLine.git
 cd CCometixLine
 cargo build --release
-
-# Linux/macOS
-mkdir -p ~/.claude/ccline   # Codex CLI: ~/.codex/ccline
-cp target/release/ccometixline ~/.claude/ccline/ccline   # Codex CLI: ~/.codex/ccline/ccline
-chmod +x ~/.claude/ccline/ccline
-
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\ccline"  # Codex CLI: $env:USERPROFILE\.codex\ccline
-copy target\release\ccometixline.exe "$env:USERPROFILE\.claude\ccline\ccline.exe"  # Codex CLI: $env:USERPROFILE\.codex\ccline\ccline.exe
+install -Dm755 target/release/ccometixline "$CCLINE_HOME/ccline"
 ```
-
-### Provider Paths & Environment
-
-- `CLAUDE_CONFIG_DIR`: Override the base directory for Claude transcript archives (same as before).
-- `CODEX_SESSIONS_DIR`: Comma-separated list of Codex transcript roots (defaults to `~/.codex/sessions`).
-- `CCLINE_CONFIG_HOME`: Override the configuration directory used for block overrides and update state.
 
 ## Usage
 
+CCometixLine reads a single JSON payload from stdin and prints a fully-coloured statusline.
+
 ```bash
-# Basic usage (displays all enabled segments)
+# Claude Code / Codex both feed the JSON payload automatically
 ccline
 
-# Show help
-ccline --help
+# Inspect the default configuration
+echo '{}' | ccline --print-config
 
-# Print default configuration  
-ccline --print-config
-
-# TUI configuration mode (planned)
-ccline --configure
-
-# Billing block management
-ccline --set-block-start <time>    # Set billing block start time for today
-ccline --clear-block-start          # Clear block start time override
-ccline --show-block-status          # Show current block status
-```
-
-### Billing Block Synchronization
-
-Solve the problem of billing blocks not syncing when switching between devices with the same account:
-
-```bash
-# Set block start time to 10am on device A
+# Manage 5‑hour billing blocks
 ccline --set-block-start 10
-
-# Supported time formats:
-ccline --set-block-start 10        # 10:00 (24-hour format)
-ccline --set-block-start 10:30     # 10:30
-ccline --set-block-start "10:30"   # With quotes works too
-
-# View current settings
 ccline --show-block-status
-
-# Clear settings, restore automatic calculation
 ccline --clear-block-start
 ```
 
-## Default Segments
+## Data sources & environment
 
-Displays: `Model | Directory | Git Branch Status | Usage | Cost Statistics | Burn Rate`
+- Transcript roots:
+  - Claude: `~/.config/claude/projects` and `~/.claude/projects`
+  - Codex: `~/.codex/sessions`
+- `CLAUDE_CONFIG_DIR` – extra comma-separated Claude project roots (auto-append `/projects`).
+- `CODEX_SESSIONS_DIR` – comma-separated Codex session roots.
+- `CCLINE_CONFIG_HOME` – override the directory used for block overrides and update state.
+- `CCLINE_DISABLE_COST=1` – hide cost and burn-rate segments.
+- `CCLINE_SHOW_TIMING=1` – append profiling numbers useful for debugging.
 
-### Model Display
+## Statusline segments
 
-Shows simplified Claude model names:
-- `claude-3-5-sonnet` → `Sonnet 3.5`
-- `claude-4-sonnet` → `Sonnet 4`
-- `gpt-5-codex` → `GPT-5 Codex`
-
-### Directory Display
-
-Shows current workspace directory with folder icon.
-
-### Git Status Indicators
-
-- Branch name with Nerd Font icon
-- Status: `✓` Clean, `●` Dirty, `⚠` Conflicts  
-- Remote tracking: `↑n` Ahead, `↓n` Behind
-
-### Usage Display
-
-Token usage percentage based on transcript analysis with context limit tracking.
-
-### Cost Statistics
-
-Real-time cost tracking with session, daily, and billing block information:
-- **Session cost**: Cost for current Claude Code session
-- **Daily total**: Total cost for today across all sessions
-- **Billing blocks**: 5-hour billing periods with remaining time (supports manual sync)
-
-#### Dynamic Billing Block Algorithm
-
-Uses the same dual-condition triggering algorithm as ccusage:
-- Automatically detects activity start time to create 5-hour billing blocks
-- Starts new block when activity gap exceeds 5 hours
-- Supports manual start time setting for multi-device synchronization
-
-### Burn Rate Monitoring
-
-Real-time token consumption rate with visual indicators:
-- 🔥 High burn rate (>5000 tokens/min)
-- ⚡ Medium burn rate (2000-5000 tokens/min)
-- 📊 Normal burn rate (<2000 tokens/min)
-- Shows cost per hour projection
-
-## Environment Variables
-
-### Cost Feature Control
-
-- `CCLINE_DISABLE_COST=1` - Disable both cost statistics and burn rate monitoring
-  - When set: Shows only core segments (Model | Directory | Git | Usage)
-  - When unset: Shows all segments including cost tracking
-
-### Performance Tuning
-
-- `CCLINE_SHOW_TIMING=1` - Display performance timing information for debugging
-
-## Configuration
-
-Configuration support is planned for future releases. Currently uses sensible defaults for all segments.
+| Segment    | Description |
+|------------|-------------|
+| Model      | Provider-aware label, e.g. `Sonnet 3.5`, `GPT-5 Codex` |
+| Directory  | Current workspace / project folder |
+| Git        | Branch, cleanliness (✓ / ● / ⚠), ahead/behind counters |
+| Usage      | Context consumption within a 200 k token limit |
+| Cost       | Session + daily spend, active billing block summary |
+| Burn rate  | Tokens/minute trend with 🔥 / ⚡ indicators |
+| Update     | Inline notifier when a new release is available |
 
 ## Performance
 
-- **Startup time**: < 50ms (vs ~200ms for TypeScript equivalents)
-- **Memory usage**: < 10MB (vs ~25MB for Node.js tools)
-- **Binary size**: ~2MB optimized release build
+- Startup < 50 ms
+- Memory footprint < 10 MB
+- Release binary ≈ 2 MB
 
 ## Requirements
 
-- **Git**: Version 1.5+ (Git 2.22+ recommended for better branch detection)
-- **Terminal**: Must support Nerd Fonts for proper icon display
-  - Install a [Nerd Font](https://www.nerdfonts.com/) (e.g., FiraCode Nerd Font, JetBrains Mono Nerd Font)
-  - Configure your terminal to use the Nerd Font
-- **Claude Code**: For statusline integration
+- Git 1.5+ (Git 2.22+ recommended for branch detection)
+- Terminal with a Nerd Font (e.g., FiraCode NF, JetBrains Mono NF)
+- Claude Code desktop app **or** Codex CLI (for statusline integration)
 
 ## Development
 
 ```bash
-# Build development version
-cargo build
-
-# Run tests
+cargo fmt
+cargo clippy --all-targets
 cargo test
-
-# Build optimized release
-cargo build --release
 ```
 
 ## Roadmap
 
-- [ ] TOML configuration file support
-- [ ] TUI configuration interface
-- [ ] Custom themes
-- [ ] Plugin system
-- [ ] Cross-platform binaries
+- TOML configuration file
+- In-app TUI configurator
+- Theme customization
+- Plugin hooks
 
 ## Acknowledgments
 
-### ccusage Integration
-
-Cost tracking features are built upon the statistical methods and pricing data from the [ccusage](https://github.com/ryoppippi/ccusage) project.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Cost and billing heuristics are inspired by [ccusage](https://github.com/ryoppippi/ccusage).
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT License. See [LICENSE](LICENSE).
 
 ## Star History
 
