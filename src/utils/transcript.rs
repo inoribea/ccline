@@ -1,7 +1,5 @@
 use crate::billing::UsageEntry;
-use crate::config::{
-    NormalizedUsage, ProviderKind, TokenCountInfo, TokenUsageBreakdown, TranscriptEntry,
-};
+use crate::config::{NormalizedUsage, ProviderKind, TokenCountInfo, TranscriptEntry};
 use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
