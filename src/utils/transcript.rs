@@ -287,6 +287,7 @@ pub fn parse_latest_usage<P: AsRef<std::path::Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::TokenUsageBreakdown;
 
     #[test]
     fn test_extract_session_id() {
