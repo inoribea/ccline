@@ -10,8 +10,8 @@ fn test_codex_input_data_parsing() {
         "transcriptPath": "/home/user/.codex/sessions/test-session.jsonl"
     }"#;
 
-    let input_data = InputData::from_reader(json_input.as_bytes())
-        .expect("Should parse Codex input format");
+    let input_data =
+        InputData::from_reader(json_input.as_bytes()).expect("Should parse Codex input format");
 
     assert_eq!(input_data.provider, ProviderKind::Codex);
     assert_eq!(input_data.model.display_name, "GPT-5 Codex");
@@ -96,8 +96,7 @@ fn test_codex_model_detection() {
             model_name
         );
 
-        let input_data = InputData::from_reader(json_input.as_bytes())
-            .expect("Should parse input");
+        let input_data = InputData::from_reader(json_input.as_bytes()).expect("Should parse input");
 
         assert_eq!(
             input_data.provider, expected_provider,
@@ -111,9 +110,18 @@ fn test_codex_model_detection() {
 fn test_codex_path_detection() {
     // Test various Codex path formats
     let test_cases = vec![
-        (r#"/home/user/.codex/sessions/test.jsonl"#, r#"/home/user/.codex/sessions/test.jsonl"#),
-        (r#"C:\\Users\\user\\.codex\\sessions\\test.jsonl"#, r#"C:\\Users\\user\\.codex\\sessions\\test.jsonl"#),
-        (r#"/Users/user/.codex/sessions/2025/10/demo.jsonl"#, r#"/Users/user/.codex/sessions/2025/10/demo.jsonl"#),
+        (
+            r#"/home/user/.codex/sessions/test.jsonl"#,
+            r#"/home/user/.codex/sessions/test.jsonl"#,
+        ),
+        (
+            r#"C:\\Users\\user\\.codex\\sessions\\test.jsonl"#,
+            r#"C:\\Users\\user\\.codex\\sessions\\test.jsonl"#,
+        ),
+        (
+            r#"/Users/user/.codex/sessions/2025/10/demo.jsonl"#,
+            r#"/Users/user/.codex/sessions/2025/10/demo.jsonl"#,
+        ),
     ];
 
     for (display_path, json_path) in test_cases {
@@ -186,7 +194,7 @@ fn test_codex_pricing_lookup() {
     // Verify pricing values for gpt-5-codex
     let gpt5_pricing = pricing.get("gpt-5-codex").unwrap();
     assert_eq!(gpt5_pricing.input_cost_per_1k, 0.00075); // $0.75/1M
-    assert_eq!(gpt5_pricing.output_cost_per_1k, 0.006);  // $6.00/1M
+    assert_eq!(gpt5_pricing.output_cost_per_1k, 0.006); // $6.00/1M
 
     // Test fuzzy matching
     let fuzzy_result = ModelPricing::get_model_pricing(&pricing, "gpt-5-codex-preview");

@@ -49,7 +49,9 @@ impl ModelPricing {
 
             // Check if it's a Claude or OpenAI/Codex model
             let is_claude = model_name.starts_with("claude-") || model_name.contains("claude");
-            let is_openai = model_name.starts_with("gpt-") || model_name.starts_with("o3") || model_name.starts_with("o4");
+            let is_openai = model_name.starts_with("gpt-")
+                || model_name.starts_with("o3")
+                || model_name.starts_with("o4");
 
             if is_claude || is_openai {
                 claude_models += 1;
@@ -115,8 +117,8 @@ impl ModelPricing {
             "gpt-5-codex".to_string(),
             ModelPricing {
                 model_name: "gpt-5-codex".to_string(),
-                input_cost_per_1k: 0.00075,  // $0.75/1M tokens
-                output_cost_per_1k: 0.006,   // $6.00/1M tokens
+                input_cost_per_1k: 0.00075, // $0.75/1M tokens
+                output_cost_per_1k: 0.006,  // $6.00/1M tokens
                 cache_creation_cost_per_1k: 0.0,
                 cache_read_cost_per_1k: 0.0,
             },
@@ -126,8 +128,8 @@ impl ModelPricing {
             "gpt-5-codex-preview".to_string(),
             ModelPricing {
                 model_name: "gpt-5-codex-preview".to_string(),
-                input_cost_per_1k: 0.00075,  // $0.75/1M tokens
-                output_cost_per_1k: 0.006,   // $6.00/1M tokens
+                input_cost_per_1k: 0.00075, // $0.75/1M tokens
+                output_cost_per_1k: 0.006,  // $6.00/1M tokens
                 cache_creation_cost_per_1k: 0.0,
                 cache_read_cost_per_1k: 0.0,
             },
