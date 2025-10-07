@@ -1,4 +1,4 @@
-use ccometixline::config::{InputData, NormalizedUsage, ProviderKind};
+use ccometixline::config::{InputData, ProviderKind};
 use ccometixline::utils::transcript::parse_line_to_usage;
 use std::collections::HashSet;
 
@@ -110,30 +110,30 @@ fn test_codex_model_detection() {
 #[test]
 fn test_codex_path_detection() {
     // Test various Codex path formats
-    let test_paths = vec![
-        "/home/user/.codex/sessions/test.jsonl",
-        "C:\\Users\\user\\.codex\\sessions\\test.jsonl",
-        "/Users/user/.codex/sessions/2025/10/demo.jsonl",
+    let test_cases = vec![
+        (r#"/home/user/.codex/sessions/test.jsonl"#, r#"/home/user/.codex/sessions/test.jsonl"#),
+        (r#"C:\\Users\\user\\.codex\\sessions\\test.jsonl"#, r#"C:\\Users\\user\\.codex\\sessions\\test.jsonl"#),
+        (r#"/Users/user/.codex/sessions/2025/10/demo.jsonl"#, r#"/Users/user/.codex/sessions/2025/10/demo.jsonl"#),
     ];
 
-    for path in test_paths {
+    for (display_path, json_path) in test_cases {
         let json_input = format!(
             r#"{{
                 "model": "gpt-5-codex",
                 "workspace": {{"cwd": "/tmp"}},
                 "transcriptPath": "{}"
             }}"#,
-            path
+            json_path
         );
 
         let input_data = InputData::from_reader(json_input.as_bytes())
-            .expect("Should parse input");
+            .expect(&format!("Should parse input with path: {}", display_path));
 
         assert_eq!(
             input_data.provider,
             ProviderKind::Codex,
             "Path {} should be detected as Codex",
-            path
+            display_path
         );
     }
 }
@@ -175,7 +175,6 @@ fn test_codex_deduplication() {
 #[test]
 fn test_codex_pricing_lookup() {
     use ccometixline::billing::ModelPricing;
-    use std::collections::HashMap;
 
     let pricing = ModelPricing::fallback_pricing();
 

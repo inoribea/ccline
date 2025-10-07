@@ -435,11 +435,12 @@ pub struct Message {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct TranscriptEntry {
+    #[serde(alias = "kind")]
     pub r#type: Option<String>,
     pub message: Option<Message>,
     #[serde(default, alias = "requestId")]
     pub request_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "ts")]
     pub timestamp: Option<String>,
     #[serde(default)]
     pub payload: Option<TranscriptPayload>,
