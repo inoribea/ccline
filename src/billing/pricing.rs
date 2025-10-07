@@ -47,8 +47,11 @@ impl ModelPricing {
         for (model_name, litellm_pricing) in data {
             total_models += 1;
 
-            // Check if it's a Claude model
-            if model_name.starts_with("claude-") || model_name.contains("claude") {
+            // Check if it's a Claude or OpenAI/Codex model
+            let is_claude = model_name.starts_with("claude-") || model_name.contains("claude");
+            let is_openai = model_name.starts_with("gpt-") || model_name.starts_with("o3") || model_name.starts_with("o4");
+
+            if is_claude || is_openai {
                 claude_models += 1;
 
                 // Only process models with valid token pricing (skip image generation models etc.)
@@ -79,7 +82,7 @@ impl ModelPricing {
         }
 
         eprintln!(
-            "LiteLLM: Fetched {} total models, {} Claude models, {} with valid pricing",
+            "LiteLLM: Fetched {} total models, {} Claude/OpenAI models, {} with valid pricing",
             total_models, claude_models, valid_claude_models
         );
 
@@ -104,6 +107,67 @@ impl ModelPricing {
     /// Fallback pricing data for offline use
     fn fallback_pricing() -> HashMap<String, ModelPricing> {
         let mut m = HashMap::new();
+
+        // ===== OpenAI / Codex Models =====
+
+        // GPT-5 Codex family - all variants use same pricing
+        m.insert(
+            "gpt-5-codex".to_string(),
+            ModelPricing {
+                model_name: "gpt-5-codex".to_string(),
+                input_cost_per_1k: 0.00075,  // $0.75/1M tokens
+                output_cost_per_1k: 0.006,   // $6.00/1M tokens
+                cache_creation_cost_per_1k: 0.0,
+                cache_read_cost_per_1k: 0.0,
+            },
+        );
+
+        m.insert(
+            "gpt-5-codex-preview".to_string(),
+            ModelPricing {
+                model_name: "gpt-5-codex-preview".to_string(),
+                input_cost_per_1k: 0.00075,  // $0.75/1M tokens
+                output_cost_per_1k: 0.006,   // $6.00/1M tokens
+                cache_creation_cost_per_1k: 0.0,
+                cache_read_cost_per_1k: 0.0,
+            },
+        );
+
+        // O3 and O4 models (using GPT-5-Codex pricing as fallback)
+        m.insert(
+            "o3".to_string(),
+            ModelPricing {
+                model_name: "o3".to_string(),
+                input_cost_per_1k: 0.00075,
+                output_cost_per_1k: 0.006,
+                cache_creation_cost_per_1k: 0.0,
+                cache_read_cost_per_1k: 0.0,
+            },
+        );
+
+        m.insert(
+            "o4".to_string(),
+            ModelPricing {
+                model_name: "o4".to_string(),
+                input_cost_per_1k: 0.00075,
+                output_cost_per_1k: 0.006,
+                cache_creation_cost_per_1k: 0.0,
+                cache_read_cost_per_1k: 0.0,
+            },
+        );
+
+        m.insert(
+            "o4-mini".to_string(),
+            ModelPricing {
+                model_name: "o4-mini".to_string(),
+                input_cost_per_1k: 0.00075,
+                output_cost_per_1k: 0.006,
+                cache_creation_cost_per_1k: 0.0,
+                cache_read_cost_per_1k: 0.0,
+            },
+        );
+
+        // ===== Claude Models =====
 
         // Claude 4 models (corrected per-token pricing)
         m.insert(

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **OpenAI/Codex model pricing**: Added accurate pricing for gpt-5-codex, o3, o4, and o4-mini models ($0.75/1M input, $6.00/1M output)
+- **Comprehensive test suite**: Created integration tests for Codex transcript parsing, model detection, and pricing lookup
+- **Codex integration guide**: New documentation at `docs/CODEX_INTEGRATION.md` with setup instructions and troubleshooting
+- **Example test script**: Added `examples/test_codex_statusline.sh` for testing Codex integration
+
+### Changed
+- Extended LiteLLM pricing fetcher to include OpenAI models alongside Claude models
+- Improved model provider detection to recognize GPT-5, O3, and O4 model identifiers
+
 ## [1.0.0] - 2025-10-06
 
 ### Added
