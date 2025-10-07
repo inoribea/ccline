@@ -97,7 +97,7 @@ fn parse_claude_entry(
     let raw_usage = message.usage.as_ref()?;
 
     if let (Some(msg_id), Some(req_id)) = (message.id.as_ref(), entry.request_id.as_ref()) {
-        let hash = format!("claude:{}:{}", session_id, format!("{}:{}", msg_id, req_id));
+        let hash = format!("claude:{}:{}:{}", session_id, msg_id, req_id);
         if seen.contains(&hash) {
             return None;
         }
@@ -131,9 +131,7 @@ fn parse_codex_entry(
     }
 
     let info = payload.info.as_ref()?;
-    if info.last_token_usage.is_none() {
-        return None;
-    }
+    info.last_token_usage.as_ref()?;
 
     let hash = codex_hash(session_id, info, entry.timestamp.as_deref());
     if seen.contains(&hash) {
@@ -268,18 +266,6 @@ fn normalize_codex_usage(info: &TokenCountInfo) -> NormalizedUsage {
     }
 }
 
-impl Default for TokenUsageBreakdown {
-    fn default() -> Self {
-        Self {
-            input_tokens: None,
-            cached_input_tokens: None,
-            output_tokens: None,
-            reasoning_output_tokens: None,
-            total_tokens: None,
-        }
-    }
-}
-
 /// Parse entire transcript and return the latest normalized usage snapshot
 pub fn parse_latest_usage<P: AsRef<std::path::Path>>(
     transcript_path: P,
@@ -293,7 +279,7 @@ pub fn parse_latest_usage<P: AsRef<std::path::Path>>(
     let mut state = TranscriptState::with_provider(provider_hint);
     let mut seen = HashSet::new();
 
-    for line in reader.lines().flatten() {
+    for line in reader.lines().map_while(Result::ok) {
         let _ = parse_line_to_usage(&line, &session_id, &mut seen, &mut state);
     }
 

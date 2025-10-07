@@ -464,7 +464,7 @@ pub struct TokenCountInfo {
     pub last_token_usage: Option<TokenUsageBreakdown>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct TokenUsageBreakdown {
     #[serde(default)]
     pub input_tokens: Option<u32>,
