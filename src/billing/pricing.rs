@@ -105,7 +105,7 @@ impl ModelPricing {
     }
 
     /// Fallback pricing data for offline use
-    fn fallback_pricing() -> HashMap<String, ModelPricing> {
+    pub fn fallback_pricing() -> HashMap<String, ModelPricing> {
         let mut m = HashMap::new();
 
         // ===== OpenAI / Codex Models =====
